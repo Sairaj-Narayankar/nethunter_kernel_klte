@@ -39,16 +39,17 @@ jobs:
           set -euo pipefail
           mkdir -p toolchain
           echo "Downloading toolchain from $TOOLCHAIN_URL ..."
-          curl -fL "$TOOLCHAIN_URL" -o toolchain/toolchain.tar.gz
-          tar -xf toolchain/toolchain.tar.gz -C toolchain
+          curl -fL "$TOOLCHAIN_URL" -o toolchain/toolchain.tar.xz
+          tar -xf toolchain/toolchain.tar.xz -C toolchain
           TC_BIN=$(find toolchain -type f -name 'arm-eabi-gcc' | head -n1 || true)
           if [ -z "$TC_BIN" ]; then
-            echo "ERROR: arm-eabi-gcc not found in toolchain"
-            exit 3
+              echo "ERROR: arm-eabi-gcc not found in toolchain"
+              exit 3
           fi
-          TC_DIR=$(dirname "$TC_BIN")
-          echo "TC_DIR=$TC_DIR" >> $GITHUB_OUTPUT
-          echo "Toolchain ready at: $TC_BIN"
+             TC_DIR=$(dirname "$TC_BIN")
+             echo "TC_DIR=$TC_DIR" >> $GITHUB_OUTPUT
+             echo "Toolchain ready at: $TC_BIN"
+
 
       - name: Clone kernel, driver and AnyKernel
         run: |
