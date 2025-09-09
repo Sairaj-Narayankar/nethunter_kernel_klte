@@ -11,7 +11,7 @@ permissions:
 
 env:
   KERNEL_REPO: https://github.com/Lekensteyn/nethunter_kernel_klte.git
-  KERNEL_BRANCH: master
+  KERNEL_BRANCH: cm-13.0
   DRIVER_REPO: https://github.com/aircrack-ng/rtl8812au.git
   ANYKERNEL_REPO: https://github.com/osm0sis/AnyKernel3.git
   OUTDIR: out
