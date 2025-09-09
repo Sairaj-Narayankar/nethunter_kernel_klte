@@ -1,0 +1,112 @@
+name: Build klte NetHunter kernel + RTL8821AU (universal)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  KERNEL_REPO: https://github.com/Lekensteyn/nethunter_kernel_klte.git
+  KERNEL_BRANCH: master
+  DRIVER_REPO: https://github.com/aircrack-ng/rtl8812au.git
+  ANYKERNEL_REPO: https://github.com/osm0sis/AnyKernel3.git
+  OUTDIR: out
+  ZIP_PREFIX: KLTE-RTL8821AU-NH
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    env:
+      # set TOOLCHAIN_URL as a GitHub repo secret pointing to a tarball (.tar.xz/.tar.gz)
+      TOOLCHAIN_URL: ${{ secrets.TOOLCHAIN_URL }}
+
+    steps:
+      - name: Checkout repo (workflow files)
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git make bc bison flex libssl-dev libncurses5-dev unzip zip rsync wget curl build-essential
+
+      - name: Fetch toolchain tarball (arm-eabi GCC expected)
+        id: fetch_toolchain
+        run: |
+          set -euo pipefail
+          mkdir -p toolchain
+          if [ -n "${{ env.TOOLCHAIN_URL }}" ]; then
+            echo "Downloading toolchain from TOOLCHAIN_URL..."
+            curl -L --retry 5 -o toolchain/arm-eabi-toolchain.tar.xz "${{ env.TOOLCHAIN_URL }}"
+            tar -C toolchain -xf toolchain/arm-eabi-toolchain.tar.xz
+          else
+            echo "No TOOLCHAIN_URL provided. Looking for toolchain/arm-eabi-toolchain.tar.xz in repo..."
+            if [ -f toolchain/arm-eabi-toolchain.tar.xz ]; then
+              tar -C toolchain -xf toolchain/arm-eabi-toolchain.tar.xz
+            else
+              echo "ERROR: No toolchain provided. Add TOOLCHAIN_URL repo secret or add the tarball to toolchain/"
+              exit 2
+            fi
+          fi
+          TC_BIN=$(find toolchain -type f -name 'arm-eabi-gcc' -o -name 'arm-linux-gnueabi-gcc' | head -n1 || true)
+          if [ -z "$TC_BIN" ]; then
+            echo "Could not locate arm-eabi gcc inside the extracted toolchain. Listing toolchain/"
+            ls -la toolchain || true
+            exit 3
+          fi
+          TC_DIR=$(dirname "$TC_BIN")
+          echo "TC_DIR=$TC_DIR" >> $GITHUB_OUTPUT
+          echo "Found toolchain at: $TC_BIN"
+
+      - name: Clone kernel, driver and AnyKernel
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          cd work
+          git clone --depth=1 -b "${{ env.KERNEL_BRANCH }}" "${{ env.KERNEL_REPO }}" kernel || (cd kernel && git fetch --depth=1 origin "${{ env.KERNEL_BRANCH }}" && git checkout "${{ env.KERNEL_BRANCH }}")
+          git clone --depth=1 "${{ env.DRIVER_REPO }}" rtl8812au || true
+          git clone --depth=1 "${{ env.ANYKERNEL_REPO }}" AnyKernel3 || true
+          ls -la
+
+      - name: Make build script executable
+        run: |
+          chmod +x scripts/build.sh
+
+      - name: Run build
+        env:
+          CROSS_COMPILE: ${{ steps.fetch_toolchain.outputs.TC_DIR }}/arm-eabi-
+          ARCH: arm
+          KBUILD_BUILD_USER: nethunter
+          KBUILD_BUILD_HOST: github-actions
+        run: |
+          set -euo pipefail
+          ./scripts/build.sh work "${{ env.OUTDIR }}" "${{ env.ZIP_PREFIX }}" || (echo "Build failed"; exit 1)
+
+      - name: Upload artifact (flashable zip)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-zip
+          path: ${{ env.OUTDIR }}/*.zip
+
+      - name: Create GitHub Release (auto)
+        if: always()
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "klte kernel build ${{ github.run_number }}"
+          tag_name: "build-${{ github.run_number }}"
+          body: "Automated build of klte kernel + RTL8821AU (8812au) module."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload ZIP to Release
+        if: always()
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ env.OUTDIR }}/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
