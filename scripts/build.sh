@@ -37,7 +37,12 @@ echo "Using defconfig: $DEFCONFIG"
 
 # Build kernel
 make O="$BUILD_DIR" "$DEFCONFIG"
-yes "" | make O="$BUILD_DIR" olddefconfig
+
+# Run olddefconfig only if the kernel supports it
+if make -n olddefconfig &>/dev/null; then
+  yes "" | make O="$BUILD_DIR" olddefconfig
+fi
+
 make -j"$(nproc)" O="$BUILD_DIR" zImage modules || make -j4 O="$BUILD_DIR" zImage modules
 
 # locate zImage
@@ -105,3 +110,4 @@ zip -r9 "../$ZIPNAME" . -x ".git*" -x "README.md" -x "LICENSE"
 mv "../$ZIPNAME" "$ROOT/$OUTDIR/"
 
 echo "Built flashable zip: $ROOT/$OUTDIR/$ZIPNAME"
+
