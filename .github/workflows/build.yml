@@ -42,7 +42,7 @@ jobs:
           mkdir -p toolchain
           if [ -n "${{ env.TOOLCHAIN_URL }}" ]; then
             echo "Downloading toolchain from TOOLCHAIN_URL..."
-            curl -L --retry 5 -o toolchain/toolchain.tar.xz https://github.com/nathanchance/android-prebuilts-gcc/releases/download/arm-eabi-4.9-20180428/arm-eabi-4.9-20180428.tar.xz
+            curl -L --retry 5 --fail --silent --show-error -o toolchain/toolchain.tar.xz https://github.com/nathanchance/android-prebuilts-gcc/releases/download/arm-eabi-4.9-20180428/arm-eabi-4.9-20180428.tar.xz
             tar -C toolchain -xf toolchain/arm-eabi-toolchain.tar.xz
           else
             echo "No TOOLCHAIN_URL provided. Looking for toolchain/arm-eabi-toolchain.tar.xz in repo..."
